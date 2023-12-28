@@ -1,7 +1,8 @@
+import lightning as L
 import torch
 from torchvision import datasets
 from torchvision.transforms import transforms
-import lightning as L
+
 
 # Creating a PyTorch class
 # 28*28 ==> 9 ==> 28*28
@@ -13,7 +14,6 @@ class AE(torch.nn.Module):
         # layer followed by Relu activation function
         # 784 ==> 9
         self.encoder = torch.nn.Sequential(
-            torch.nn.Dropout(),
             torch.nn.Linear(28 * 28, 128),
             torch.nn.ReLU(),
             torch.nn.Linear(128, 64),
@@ -48,11 +48,12 @@ class AE(torch.nn.Module):
         decoded = self.decoder(encoded)
         return decoded
 
+
 class AutoEncoder(L.LightningModule):
-    def __init__(self, ae):
+    def __init__(self):
         super().__init__()
 
-        self.ae = ae
+        self.ae = AE()
 
     def training_step(self, batch, _):
         image = batch[0]
@@ -69,14 +70,17 @@ class AutoEncoder(L.LightningModule):
         image = image.reshape(-1, 28 * 28)
         pred = self.ae(image)
 
-        pred = pred.reshape(-1, 1, 28 , 28)
+        pred = pred.reshape(-1, 1, 28, 28)
 
         for idx in range(3):
-            self.logger.experiment.add_image(f"Image/{self.global_step}_{idx}", pred[idx])  # type: ignore
-    
+            self.logger.experiment.add_image(
+                f"Image/{self.global_step}_{idx}", pred[idx]
+            )  # type: ignore
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
+
 
 # Transforms images to a PyTorch Tensor
 tensor_transform = transforms.ToTensor()
@@ -87,10 +91,12 @@ dataset = datasets.MNIST(
 
 # DataLoader is used to load the dataset
 # for training
-loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=32, shuffle=True, num_workers=8)
+loader = torch.utils.data.DataLoader(
+    dataset=dataset, batch_size=32, shuffle=True, num_workers=8
+)
 
 # Model Initialization
-model = AutoEncoder(AE())
+model = AutoEncoder()
 
 # train the model (hint: here are some helpful Trainer arguments for rapid idea iteration)
 trainer = L.Trainer(max_epochs=10, limit_val_batches=1, accelerator="gpu", devices=1)
